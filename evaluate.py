@@ -67,9 +67,8 @@ HOENAS_B = {"normalOpArch": {"randomNum": 0, "op": [5, 0, 3, 0, 6, 4, 0, 1, 4, 0
         }
 
 
-# 推断过程, 测试accuracy
+# evaluate_test_epoch
 def evaluate_test_epoch(fixednet, testDataLoader, criterion, device):
-    # 设置supernet训练模式
     fixednet.eval()
     objs = utils.AvgrageMeter()
     top1 = utils.AvgrageMeter()
@@ -84,24 +83,21 @@ def evaluate_test_epoch(fixednet, testDataLoader, criterion, device):
         objs.update(loss.data, n)
         top1.update(prec1.data, n)
         top5.update(prec5.data, n)
-
         #break
+
     return objs.avg, top1.avg, top5.avg
 
-# 训练过程, 优化网络架构
+# evaluate_train_epoch
 def evaluate_train_epoch(fixednet, trainDataLoader, criterion, device, optimizer, bAuxiliary, auxiliary_weight):
-    # 设置supernet训练模式
     fixednet.train()
 
     objs = utils.AvgrageMeter()
     top1 = utils.AvgrageMeter()
     top5 = utils.AvgrageMeter()
 
-    # 获取训练数据
     for batch_idx, (traininputs, traintargets) in enumerate(trainDataLoader):
         traininputs, traintargets = traininputs.to(device), traintargets.to(device)
 
-        # 训练supernet
         optimizer.zero_grad()
         logits, logits_aux = fixednet(traininputs)
         loss = criterion(logits, traintargets)
@@ -141,7 +137,6 @@ if __name__ == '__main__':
     torch.cuda.manual_seed(args.seed)
     random.seed(args.seed)
 
-    # 如果网络的输入数据维度或类型上变化不大，设置  torch.backends.cudnn.benchmark = true  可以增加运行效率
     cudnn.benchmark = True
     cudnn.enabled = True
 
@@ -201,7 +196,6 @@ if __name__ == '__main__':
 
     # reload model
     if args.reload_model:
-        # 模型文件路径
         if os.path.exists(evaluateModelCheckPointPath):
             print('==> Resuming from checkpoint:', os.path.abspath(modelCheckPointDir))
             checkpoint = torch.load(evaluateModelCheckPointPath)
@@ -213,15 +207,13 @@ if __name__ == '__main__':
             acc = checkpoint['acc']
             print('reload model best_acc, startEpoch :', acc, start_epoch)
 
-    # 开始darts训练
+    # begin train
     for epoch in range(start_epoch, args.evaluate_epochs):
-        # 时间调度员 记录 cosline lr
         lr = scheduler.get_lr()[0]  # get_last_lr()[0]
         logging.info('epoch %d lr %e', epoch, lr)
 
         fixednet.drop_path_prob = args.drop_path_prob * (epoch - start_epoch) / (args.evaluate_epochs - start_epoch)
 
-        # 训练一个epoch
         with torch.autograd.set_detect_anomaly(True):
             trainLoss, trainTop1, trainTop5 = evaluate_train_epoch(fixednet, evaluate_train_dataLoader, criterion, device, fixednetOptimizer, args.auxiliary, args.auxiliary_weight)
         with torch.no_grad():

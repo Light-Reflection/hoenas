@@ -64,7 +64,6 @@ if __name__ == '__main__':
     torch.cuda.manual_seed(args.seed)
     random.seed(args.seed)
 
-    # 如果网络的输入数据维度或类型上变化不大，设置  torch.backends.cudnn.benchmark = true  可以增加运行效率
     cudnn.benchmark = True
     cudnn.enabled = True
 

@@ -1,54 +1,7 @@
-'''Some helper functions for PyTorch, including:
-    - get_mean_and_std: calculate the mean and std value of dataset.
-    - msr_init: net parameter initialization.
-    - progress_bar: progress bar mimic xlua.progress.
-'''
-import os
 import sys
 import time
-import math
 import numpy as np
-
 import torch
-import torch.nn as nn
-import torch.nn.init as init
-from models.operations import candidateNameList
-
-#　将arch转化为字符串
-def removelessArchToStr(arch):
-    archStr = 'normalop:' + str(list(arch[0])) + 'reduceop:' + str(list(arch[1])) \
-              + 'normaledge:' + str(list(arch[2])) + 'reduceedge:' + str(list(arch[3]))
-    return archStr
-
-def get_mean_and_std(dataset):
-    '''Compute the mean and std value of dataset.'''
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True, num_workers=2)
-    mean = torch.zeros(3)
-    std = torch.zeros(3)
-    print('==> Computing mean and std..')
-    for inputs, targets in dataloader:
-        for i in range(3):
-            mean[i] += inputs[:,i,:,:].mean()
-            std[i] += inputs[:,i,:,:].std()
-    mean.div_(len(dataset))
-    std.div_(len(dataset))
-    return mean, std
-
-def init_params(net):
-    '''Init layer parameters.'''
-    for m in net.modules():
-        if isinstance(m, nn.Conv2d):
-            init.kaiming_normal(m.weight, mode='fan_out')
-            if m.bias:
-                init.constant(m.bias, 0)
-        elif isinstance(m, nn.BatchNorm2d):
-            init.constant(m.weight, 1)
-            init.constant(m.bias, 0)
-        elif isinstance(m, nn.Linear):
-            init.normal(m.weight, std=1e-3)
-            if m.bias:
-                init.constant(m.bias, 0)
-
 
 #_, term_width = os.popen('stty size', 'r').read().split()
 term_width = 97#  int(term_width)
@@ -131,14 +84,14 @@ def format_time(seconds):
         f = '0ms'
     return f
 
-# 计算
+# count_net_parameters
 def count_net_parameters(model):
     # for name, v in models.named_parameters():
     #     print(name, np.prod(v.size()))
     return np.sum(np.prod(v.size()) for name, v in model.named_parameters() if "auxiliary" not in name) / 1e6
 
 
-# 用于统计一些参数
+# AvgrageMeter
 class AvgrageMeter(object):
     def __init__(self):
         self.reset()
@@ -154,7 +107,7 @@ class AvgrageMeter(object):
         self.avg = self.sum / self.cnt
 
 
-# 统计模型预测的准确绿
+# calAccuracy
 def calAccuracy(output, target, topk=(1,)):
     # output, target: torch.Size([96, 10]) torch.Size([96])
 
@@ -167,7 +120,6 @@ def calAccuracy(output, target, topk=(1,)):
     # _, pred: torch.Size([96, 5]) torch.Size([96, 5])
 
     #print('output, target, pred:', output.shape, target.shape, pred.shape)
-    # 此时记录的已经是 类别标签了
     pred = pred.t()
     # pred: torch.Size([5, 96])
 
@@ -175,9 +127,8 @@ def calAccuracy(output, target, topk=(1,)):
     # correct: torch.Size([5, 96])
 
     res = []
-    # 第k个表示，k个最大可能的预测中是否预测命中
     for k in topk:
-        correct_k = correct[:k].view(-1).float().sum(0) # k表示 预测前k个中有一个正确正确， 返回准确率
+        correct_k = correct[:k].view(-1).float().sum(0)
         res.append(correct_k.mul_(100.0 / batch_size))
 
     return res
@@ -204,7 +155,7 @@ class Cutout(object):
         img *= mask
         return img
 
-# 组合采样, input: 3, 2  output:[0, 2]
+# combineSample, input: 3, 2  output:[0, 2]
 def combineSample(maxNum, sampleNum):
     pool = np.r_[0:maxNum]
 
@@ -216,7 +167,7 @@ def combineSample(maxNum, sampleNum):
         ret.append(z[0])
     return ret
 
-# 组合采样, input: 3, 2  output:[0, 2]
+# combineSampleRetList, input: 3, 2  output:[0, 2]
 def combineSampleRetList(maxNum, sampleNum):
     retFlagList = np.zeros(maxNum)
 
@@ -229,7 +180,7 @@ def combineSampleRetList(maxNum, sampleNum):
 
     return retFlagList
 
-#生成神经网络架构
+#GenerateArch
 def GenerateArch(testArchNum = 10):
     def SampleArch(sampleNum):
         nodeNum = 14
@@ -271,7 +222,7 @@ def GenerateArch(testArchNum = 10):
     return allNormalOp, allReduceOp, allNormalEdge, allReduceEdge
 
 
-#生成组合
+#combination
 def combination(nums, k):
     ans = [[]]
     for i in range(k):
@@ -281,11 +232,8 @@ def combination(nums, k):
 
 
 
-
-
 # mixup
 def mixup_data(x, y, device, alpha=2.0):
-
     '''Compute the mixup data. Return mixed inputs, pairs of targets, and lambda'''
     if alpha > 0.:
         lam = np.random.beta(alpha, alpha)
