@@ -3,6 +3,7 @@ import time
 import numpy as np
 import torch
 
+#
 #_, term_width = os.popen('stty size', 'r').read().split()
 term_width = 97#  int(term_width)
 
